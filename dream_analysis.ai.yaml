@@ -4,5 +4,9 @@ flow:
   ask:
     action: llm
     prompt: |
-      Analyze the following dream:
+      Dive into the depths of this dream and explore the vivid symbols, powerful themes, and underlying emotions. Illuminate the connections between the dream world and the dreamer’s waking life, offering insights that might reveal hidden desires or unresolved thoughts. Consider the dream as a gateway to understanding the dreamer’s subconscious and personal growth:
       {{ dream_description }}
+
+  analyze:
+    action: llm
+    prompt: "{{ ask }}"

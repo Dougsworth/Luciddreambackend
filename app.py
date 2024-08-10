@@ -1,30 +1,54 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI, HTTPException, Request
 from aijson import Flow
 import asyncio
+import time
+from cachetools import TTLCache
 
-app = Flask(__name__)
+app = FastAPI()
 
-async def analyze_dream(dream_content):
+# A simple in-memory cache with a TTL (time-to-live)
+cache = TTLCache(maxsize=100, ttl=300)  # Cache up to 100 items, each for 5 minutes
+
+async def process_flow(prompt: str):
+    # Load and run the AI JSON flow
     flow = Flow.from_file('dream_analysis.ai.yaml')
-    flow = flow.set_vars(dream_content=dream_content)
+    flow = flow.set_vars(dream_description=prompt)
     result = await flow.run()
 
-    # Assuming the result is a JSON string, try to load it as a dictionary
+    return result
+
+@app.post("/v1/completions")
+async def completions(request: Request):
     try:
-        import json
-        result_dict = json.loads(result)
-    except json.JSONDecodeError:
-        result_dict = {"error": "Invalid JSON response"}
+        start_time = time.time()
+        # Parse the OpenAI-style request
+        body = await request.json()
+        prompt = body.get("prompt")
+        model = body.get("model")
 
-    return result_dict
+        if not prompt or not model:
+            raise HTTPException(status_code=400, detail="Model and prompt are required.")
 
-@app.route('/analyze-dream', methods=['POST'])
-def analyze_dream_endpoint():
-    data = request.json
-    dream_content = data.get('dream')
-    analysis = asyncio.run(analyze_dream(dream_content))
-    return jsonify({'analysis': analysis.get('analyze_dream', 'No analysis found'), 'keywords': analysis.get('keywords', [])})
+        # Check if the result is already in the cache
+        cache_key = f"{model}:{prompt}"
+        if cache_key in cache:
+            return {"choices": [{"text": cache[cache_key]}]}
 
+        # Process the flow asynchronously
+        result = await process_flow(prompt)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
+        # Cache the result
+        cache[cache_key] = result
+
+        response_time = time.time() - start_time
+        print(f"Processed in {response_time} seconds")
+
+        # Return the result
+        return {"choices": [{"text": result}]}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
