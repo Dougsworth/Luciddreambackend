@@ -1,0 +1,8 @@
+version: "0.1"
+
+flow:
+  ask:
+    action: llm
+    prompt: |
+      Analyze the following dream:
+      {{ dream_description }}

@@ -1,0 +1,12 @@
+version: "0.1"
+
+flow:
+  ask:
+    action: llm
+    prompt:
+      - role: assistant
+        text: "{{ dream_description }}"
+  extract:
+    action: extract_list
+    text:
+      link: ask
